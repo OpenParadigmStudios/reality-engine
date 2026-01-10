@@ -29,7 +29,12 @@ A User's role inside a specific Game. Defines permissions, visibility, role assi
 The base entity type (ECS "Entity"). Represents anything that exists in the game world: characters, factions, locations, clocks, bonds, etc. Carries structured data via `spec` (authoritative) and `status` (derived). Can be archived (soft-deleted) but never hard-deleted.
 
 ### Kind
-A schema defining a type of GameObject. Kinds are defined in Paradigms and specify the structure, allowed components, field types (including Meters and Refs), and available actions for objects of that type.
+A schema defining a type of GameObject. Kinds are defined in Paradigms and specify:
+- Field structure (primitives, nested objects, meters, refs)
+- Computed status fields (expressions that derive values)
+- Available Actions (bidirectional: Kinds list Actions, Actions target Kinds)
+
+For MVP, Kinds are standalone (no inheritance). Future: mixins/traits or single inheritance.
 
 ---
 
@@ -88,10 +93,15 @@ A special field type that holds a reference to another GameObject. Can be singul
 - **Singular ref**: One reference, uses `ref.set`
 - **Ref list**: Multiple references, uses `ref.add`/`ref.remove`
 
+Ref declarations can optionally constrain target Kind(s): `target_kind: Faction` or `target_kind: [Character, Faction, Location]`.
+
 Ref fields enable:
 - Referential integrity alerting (dangling reference detection)
 - Reverse lookup indexing
 - Clean trigger matching on relationship changes
+
+### Parent
+A reserved ref field on all GameObjects providing hierarchical containment. Optional (nullable). Used for structures like Rooms inside Buildings inside Cities. When a parent is archived, child objects surface as dangling refs for GM resolution.
 
 ---
 
@@ -188,10 +198,18 @@ Local modifications to a Paradigm. Implemented as a Paradigm overlay. Can be pub
 ## Structural
 
 ### Spec (GameObject)
-The authoritative data on a GameObject. Designer-defined fields that represent the "true" state of the object.
+The authoritative data on a GameObject. Designer-defined fields that represent the "true" state of the object. Spec is what you set; modified only by Events.
 
 ### Status (GameObject)
-Derived or projection data on a GameObject. Computed from Events and Spec. May include cached aggregates, computed properties, or denormalized data for query efficiency.
+Derived or projection data on a GameObject. Computed from spec values using the expression language. Includes:
+- Computed properties (e.g., max_hp from constitution)
+- Cached aggregates (e.g., bond_count)
+- Denormalized data for query efficiency
+
+Status is cached and invalidated when relevant Events occur; recomputed on next read.
+
+### Default Object
+A seed GameObject defined in a Paradigm. Created when a Game starts (or on demand). Used to pre-populate the world with standard entities (factions, locations, etc.).
 
 ---
 
@@ -205,14 +223,33 @@ The ordered sequence of all Events in a Game. Ordered by `(game_id, seq)`. Can b
 
 ---
 
+## Expression Language
+
+### Expression DSL
+A simple domain-specific language used throughout the system for computed values and conditions. Features:
+- Path references (`self.spec.hp`, `target.status.max_hp`)
+- Arithmetic (`+`, `-`, `*`, `/`)
+- Comparisons (`<`, `>`, `<=`, `>=`, `==`, `!=`)
+- Logical operators (`and`, `or`, `not`)
+- Conditionals (`if x then y else z`)
+- Functions (`len`, `min`, `max`, `floor`, `ceil`)
+- List membership (`x in list`)
+
+Used in: Meter bounds, computed status fields, Trigger conditions, Action preconditions, conditional EventType operations.
+
+---
+
 ## Identity & Ordering
 
 ### ULID
-Universally Unique Lexicographically Sortable Identifier. Used for Event IDs. Embeds timestamp for rough chronological sorting while remaining globally unique.
+Universally Unique Lexicographically Sortable Identifier. Used for Event IDs and GameObject IDs. Embeds timestamp for rough chronological sorting while remaining globally unique.
 
 ### Sequence Number
 A monotonic counter per Game. Each Event gets a `seq` value that provides strict total ordering within a Game. The authoritative ordering mechanism for replay.
 
+### Dangling Reference
+A ref field pointing to an archived (soft-deleted) GameObject. When detected, the system alerts the GM via the workflow queue. Resolution options: re-assign, clear, create replacement, or ignore for historical record.
+
 ---
 
-_Last updated during interrogation 2026-01-09. Terms are added as they emerge in spec discussions._
+_Last updated during interrogation 2026-01-10. Terms are added as they emerge in spec discussions._

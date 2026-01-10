@@ -43,7 +43,8 @@ This is the central index for all design specifications. Each domain area links 
 - No multi-tenancy or shared users
 - YAML paradigm ingestion (single directory)
 - In-memory or SQLite persistence
-- No auth system (trust the caller)
+- Simple auth system (automatic trust the caller or GM approval, set in schema)
+- Simple Sqlite DB
 - **Goal**: Prove the core loop works
 
 ### MVP 1: Multi-Game Platform
@@ -82,12 +83,12 @@ Spec order (conceptual depth):
 | Area | Doc | Status | Key Open Questions |
 |------|-----|--------|-------------------|
 | Events | [events.md](domains/events.md) | 🟢 | — |
-| GameObjects | [game-objects.md](domains/game-objects.md) | 🔄 | Kind schema must support Meter and Ref field types; PC vs NPC modeling |
-| Actions & Drafts | [actions-drafts.md](domains/actions-drafts.md) | 🔄 | Actions reference EventTypes; Drafts hold EventType + parameters |
-| Triggers | [triggers.md](domains/triggers.md) | 🔄 | Match primarily on EventType name (semantic); can filter on operations |
-| Projections | [projections.md](domains/projections.md) | 🔄 | Consume Operation layer of Events |
+| GameObjects | [game-objects.md](domains/game-objects.md) | 🟡 | Expression language details; future inheritance/mixins |
+| Actions & Drafts | [actions-drafts.md](actions-drafts.md) | 🔄 | Actions reference EventTypes; bidirectional Kind binding |
+| Triggers | [triggers.md](domains/triggers.md) | 🔄 | Match on EventType name; expression DSL for guards |
+| Projections | [projections.md](domains/projections.md) | 🔄 | Consume Operations; Status invalidation/caching |
 | Permissions | [permissions.md](domains/permissions.md) | 🔴 | Selector syntax, ACL model, visibility filtering |
-| Paradigms | [paradigms.md](domains/paradigms.md) | 🔄 | Needs `event_types` section; Kinds need Meter/Ref field types |
+| Paradigms | [paradigms.md](domains/paradigms.md) | 🔄 | Kinds with schema format; default_objects; event_types |
 
 ---
 
@@ -118,7 +119,7 @@ Spec order (conceptual depth):
 ```
 Events (primitive) ✅
     ↓
-GameObjects (what Events target) 🔄
+GameObjects (what Events target) 🟡
     ↓
 Actions & Drafts (how Events are proposed) 🔄
     ↓
@@ -155,6 +156,25 @@ Specs needing revision due to Events decisions:
 - `projections.md` — Consume Operations layer
 - `paradigms.md` — Needs `event_types` section
 
+### 2026-01-10: GameObjects Spec Deepened
+
+Key decisions made:
+- **ULID for GameObject IDs**: Consistent with Events
+- **No Kind inheritance for MVP**: Standalone Kinds; future mixins/traits
+- **Single Character Kind for PC/NPC**: Optional nullable fields for PC-specific data (player ref)
+- **Spec vs Status**: Spec is authored data; Status holds computed values (cached, invalidated)
+- **All GameObjects have optional `parent` ref**: Built-in hierarchy for containment
+- **Actions: bidirectional binding**: Actions target Kinds AND Kinds list Actions
+- **Dangling refs allowed with GM alert**: No cascade/block; GM resolves
+- **Kind schema format defined**: Meters, Refs, nested objects, computed fields
+- **Expression DSL introduced**: For meter bounds, computed status, conditions
+
+Specs affected by GameObject decisions:
+- `actions-drafts.md` — Bidirectional Action/Kind binding
+- `triggers.md` — Expression DSL for conditions
+- `projections.md` — Status caching and invalidation
+- `paradigms.md` — Full Kind schema format, default_objects
+
 ---
 
 ## Glossary
@@ -164,4 +184,4 @@ See [glossary.md](glossary.md) for canonical definitions of all terms.
 ---
 
 ## Last Updated
-_2026-01-09 — Events spec interrogation complete._
+_2026-01-10 — GameObjects spec interrogation in progress._
