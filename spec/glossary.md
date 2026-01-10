@@ -252,4 +252,26 @@ A ref field pointing to an archived (soft-deleted) GameObject. When detected, th
 
 ---
 
+## System Events
+
+### MeterOverflow
+A system-generated Event emitted when a meter operation (delta/set) attempts to exceed the meter's maximum bound. The value is clamped to max. Contains:
+- Primary target: the object whose meter clamped
+- Refs: includes Game for global watchers
+- Payload: meter name, attempted value, clamped value, overflow amount
+
+Triggers can react to these events (e.g., an ability that converts excess HP to shields).
+
+### MeterUnderflow
+A system-generated Event emitted when a meter operation attempts to go below the meter's minimum bound. Symmetric to MeterOverflow. Contains the same structure with underflow amount.
+
+---
+
+## Workflow Domain (Extended)
+
+### Feed
+A Workflow Domain construct that presents a filtered list of information updates, events, and notes affecting a specific object or set of objects. Feeds are the primary player-facing view of game activity. Players typically interact with the world through Feeds rather than directly inspecting GameObject data.
+
+---
+
 _Last updated during interrogation 2026-01-10. Terms are added as they emerge in spec discussions._

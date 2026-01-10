@@ -83,12 +83,12 @@ Spec order (conceptual depth):
 | Area | Doc | Status | Key Open Questions |
 |------|-----|--------|-------------------|
 | Events | [events.md](domains/events.md) | 🟢 | — |
-| GameObjects | [game-objects.md](domains/game-objects.md) | 🟡 | Expression language details; future inheritance/mixins |
-| Actions & Drafts | [actions-drafts.md](actions-drafts.md) | 🔄 | Actions reference EventTypes; bidirectional Kind binding |
-| Triggers | [triggers.md](domains/triggers.md) | 🔄 | Match on EventType name; expression DSL for guards |
-| Projections | [projections.md](domains/projections.md) | 🔄 | Consume Operations; Status invalidation/caching |
-| Permissions | [permissions.md](domains/permissions.md) | 🔴 | Selector syntax, ACL model, visibility filtering |
-| Paradigms | [paradigms.md](domains/paradigms.md) | 🔄 | Kinds with schema format; default_objects; event_types |
+| GameObjects | [game-objects.md](domains/game-objects.md) | 🟢 | — |
+| Actions & Drafts | [actions-drafts.md](domains/actions-drafts.md) | 🔄 | Actions reference EventTypes; bidirectional Kind binding |
+| Triggers | [triggers.md](domains/triggers.md) | 🔄 | Match on EventType name; MeterOverflow/Underflow events; expression DSL |
+| Projections | [projections.md](domains/projections.md) | 🔄 | Consume Operations; sync status recomputation on read |
+| Permissions | [permissions.md](domains/permissions.md) | 🔴 | Selector syntax, ACL model, object-level visibility |
+| Paradigms | [paradigms.md](domains/paradigms.md) | 🔄 | Kinds with schema format; default_objects; must define Game Kind |
 
 ---
 
@@ -119,7 +119,7 @@ Spec order (conceptual depth):
 ```
 Events (primitive) ✅
     ↓
-GameObjects (what Events target) 🟡
+GameObjects (what Events target) ✅
     ↓
 Actions & Drafts (how Events are proposed) 🔄
     ↓
@@ -127,7 +127,7 @@ Triggers (how Events cause more Events) 🔄
     ↓
 Projections (derived from Events) 🔄
     ↓
-Permissions (gates Actions, filters Projections)
+Permissions (gates Actions, filters Projections) 🔴
     ↓
 Paradigms (packages all of the above) 🔄
 ```
@@ -156,24 +156,30 @@ Specs needing revision due to Events decisions:
 - `projections.md` — Consume Operations layer
 - `paradigms.md` — Needs `event_types` section
 
-### 2026-01-10: GameObjects Spec Deepened
+### 2026-01-10: GameObjects Spec Complete
 
 Key decisions made:
-- **ULID for GameObject IDs**: Consistent with Events
+- **ULID for GameObject IDs**: System-generated on commit
 - **No Kind inheritance for MVP**: Standalone Kinds; future mixins/traits
 - **Single Character Kind for PC/NPC**: Optional nullable fields for PC-specific data (player ref)
-- **Spec vs Status**: Spec is authored data; Status holds computed values (cached, invalidated)
-- **All GameObjects have optional `parent` ref**: Built-in hierarchy for containment
+- **Spec vs Status**: Spec is authored data; Status holds computed values (sync recompute on read)
+- **Reserved fields on all GameObjects**: id, game_id, kind, name, description, parent, tags, owner, acl, archived, version, created_at, updated_at
 - **Actions: bidirectional binding**: Actions target Kinds AND Kinds list Actions
-- **Dangling refs allowed with GM alert**: No cascade/block; GM resolves
+- **Dangling refs allowed with GM alert**: No cascade/block; archived refs return data with `archived: true`
 - **Kind schema format defined**: Meters, Refs, nested objects, computed fields
-- **Expression DSL introduced**: For meter bounds, computed status, conditions
+- **Meter overflow/underflow**: Clamp + emit system Event (MeterOverflow/MeterUnderflow) for trigger reaction
+- **Expression DSL constraints**: No time refs, null returns null + GM note, archived refs skipped in traversal
+- **Cross-object expressions**: Allow traversal (`bonds.*.spec.loyalty`) with null skipping
+- **Object-level ACL only**: No per-field visibility; Feeds are primary player view
+- **Schema drift**: Lenient (new fields null, removed fields ignored)
+- **Enum fields**: Deferred to MVP 1
 
 Specs affected by GameObject decisions:
+- `events.md` — MeterOverflow/MeterUnderflow system events to be added
 - `actions-drafts.md` — Bidirectional Action/Kind binding
-- `triggers.md` — Expression DSL for conditions
-- `projections.md` — Status caching and invalidation
-- `paradigms.md` — Full Kind schema format, default_objects
+- `triggers.md` — MeterOverflow/Underflow events; expression DSL for conditions
+- `projections.md` — Sync status recomputation on read
+- `paradigms.md` — Full Kind schema format; must define Game Kind
 
 ---
 
@@ -184,4 +190,4 @@ See [glossary.md](glossary.md) for canonical definitions of all terms.
 ---
 
 ## Last Updated
-_2026-01-10 — GameObjects spec interrogation in progress._
+_2026-01-10 — GameObjects spec complete. Next: Actions & Drafts or Triggers._

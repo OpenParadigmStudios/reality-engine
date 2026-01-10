@@ -1,6 +1,6 @@
 # GameObjects — Domain Specification
 
-**Status**: 🟡 In progress
+**Status**: 🟢 Complete
 **Last interrogated**: 2026-01-10
 **Depends on**: [events.md](events.md)
 **Depended on by**: [actions-drafts.md](actions-drafts.md), [triggers.md](triggers.md), [projections.md](projections.md)
@@ -23,11 +23,23 @@ GameObjects are the base entity type—the "Entities" in the ECS model. They rep
 - **Rationale**: Consistent with Events; sortable, embeds timestamp, globally unique
 - **Implications**: Can sort by ID for rough creation order; IDs are opaque but consistent across the system
 
+### ID Generation
+
+- **Decision**: System generates ULID on commit
+- **Rationale**: Caller specifies Kind and data; system handles ID assignment
+- **Implications**: No caller-provided IDs; deterministic replay uses event log, not ID prediction
+
 ### Kind System
 
 - **Decision**: No inheritance for MVP; each Kind is standalone
 - **Rationale**: Simpler implementation; shared structure achieved through similar field definitions
 - **Implications**: Future: add mixins/traits or single inheritance. For now, copy shared fields across Kinds.
+
+### Game Kind
+
+- **Decision**: Paradigm must explicitly define Game Kind
+- **Rationale**: No magic built-in Kind; full customization possible
+- **Implications**: Every Paradigm needs a Game Kind definition. System doesn't provide defaults.
 
 ### Character Modeling (PC vs NPC)
 
@@ -49,9 +61,9 @@ GameObjects are the base entity type—the "Entities" in the ECS model. They rep
 
 ### Status Recomputation
 
-- **Decision**: Hybrid caching with invalidation
-- **Rationale**: Balance between always-fresh and performance
-- **Implications**: Status is cached. Events mark it dirty. Recomputed on next read or in background process.
+- **Decision**: Always synchronous on first read after invalidation
+- **Rationale**: Guarantees freshness; simpler model than async background jobs
+- **Implications**: May slow reads for complex computations; status is never stale
 
 ### Hierarchical Containment
 
@@ -71,6 +83,12 @@ GameObjects are the base entity type—the "Entities" in the ECS model. They rep
 - **Rationale**: Don't cascade or block; give GM control to resolve orphaned references
 - **Implications**: System tracks dangling refs; surfaces them in GM workflow. No automatic cleanup.
 
+### Archived Ref Resolution
+
+- **Decision**: Return archived object data with `archived: true`
+- **Rationale**: Consumer decides how to display/handle archived references
+- **Implications**: Archived objects remain queryable; UI can show "(archived)" or similar
+
 ### Templates/Prototypes
 
 - **Decision**: Default Objects in Paradigm (no template GameObjects)
@@ -89,6 +107,52 @@ GameObjects are the base entity type—the "Entities" in the ECS model. They rep
 - **Rationale**: Kinds specify sensible defaults; EventTypes can override for specific creation scenarios
 - **Implications**: Default resolution: EventType default > Kind default > null
 
+### Schema Drift
+
+- **Decision**: Lenient handling of Kind schema changes
+- **Rationale**: New fields default to null on old objects; removed fields preserved in data but ignored
+- **Implications**: No migration scripts required for MVP. Data survives schema changes gracefully.
+
+### Object Versioning
+
+- **Decision**: Track version counter on each GameObject
+- **Rationale**: Incremented on each Event that modifies the object; useful for optimistic locking
+- **Implications**: Version available for conflict detection and change tracking
+
+### Object Tags
+
+- **Decision**: Built-in `tags: string[]` on all GameObjects
+- **Rationale**: Enables filtering and querying across Kinds
+- **Implications**: `tags` is a reserved field; can be used in expressions and queries
+
+### Field Visibility
+
+- **Decision**: Object-level ACL only (no per-field visibility)
+- **Rationale**: Most player interaction is through Feeds; direct object inspection uses object-wide permissions
+- **Implications**: If you can see the object, you see all its fields. Filtering happens at object level.
+
+---
+
+## Reserved Fields
+
+These fields exist on all GameObjects regardless of Kind:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | ULID | Unique identifier (system-generated) |
+| `game_id` | ULID | Parent Game |
+| `kind` | string | Kind name |
+| `name` | string | Display name (required, used for search/display) |
+| `description` | string | Optional description/flavor text |
+| `parent` | ref | Optional hierarchical parent |
+| `tags` | string[] | Filtering labels |
+| `owner` | selector | Who owns this object |
+| `acl` | ACLEntry[] | Access control |
+| `archived` | boolean | Soft-delete flag |
+| `version` | integer | Modification counter |
+| `created_at` | datetime | Creation timestamp |
+| `updated_at` | datetime | Last modification timestamp |
+
 ---
 
 ## Kind Schema Format
@@ -105,6 +169,8 @@ Kinds are defined in Paradigm YAML files. Each Kind specifies the structure for 
 | Meter | `type: meter` | Numeric field with min/max bounds |
 | Ref (singular) | `type: ref` | Reference to another GameObject |
 | Ref (list) | `type: ref[]` | List of references |
+
+**Note**: Enum/choice fields deferred to MVP 1. Use strings for now.
 
 ### Meter Declaration
 
@@ -127,6 +193,19 @@ Meter bounds (`min`, `max`) can be:
 - Static numbers
 - Expressions referencing other fields (using the expression DSL)
 
+### Meter Bound Behavior
+
+When a meter operation (delta/set) would exceed bounds:
+
+1. **Clamp**: Value is clamped to min/max
+2. **Emit Event**: System generates a `MeterOverflow` or `MeterUnderflow` event
+3. **Trigger Potential**: Triggers can react to these events (e.g., convert excess HP to shields)
+
+Overflow/Underflow events:
+- **Primary target**: The object whose meter clamped
+- **Refs**: Includes the Game for global watchers
+- **Payload**: Meter name, attempted value, clamped value, overflow/underflow amount
+
 ### Ref Declaration
 
 ```yaml
@@ -146,6 +225,12 @@ fields:
   allies:
     type: ref[]                 # No constraint—any GameObject
 ```
+
+### Ref Traversal Behavior
+
+- **Archived exclusion**: Traversal like `bonds.*` excludes archived objects by default
+- **Null handling**: Null refs are skipped silently in traversal
+- **Explicit inclusion**: Use filter syntax to include archived: `bonds[all].*`
 
 ### Nested Structures
 
@@ -177,11 +262,6 @@ kinds:
     description: "A person in the game world—PC or NPC"
 
     fields:
-      # Core identity
-      name:
-        type: string
-        default: "Unknown"
-
       # PC-only (null for NPCs)
       player:
         type: ref
@@ -247,12 +327,19 @@ from typing import Any
 
 class GameObject:
     # Identity
-    id: str                      # ULID
+    id: str                      # ULID (system-generated)
     game_id: str                 # Which Game this belongs to
     kind: str                    # Kind name (e.g., "Character")
 
+    # Display
+    name: str                    # Display name (reserved field)
+    description: str | None      # Optional description/flavor
+
     # Hierarchy
     parent: str | None           # Optional parent GameObject ID
+
+    # Classification
+    tags: list[str]              # Filtering labels
 
     # Data
     spec: dict[str, Any]         # Authored data (matches Kind schema)
@@ -265,29 +352,14 @@ class GameObject:
 
     # Lifecycle
     archived: bool               # Soft-deleted
+    version: int                 # Modification counter
     created_at: datetime
     updated_at: datetime         # Last event that modified this
 ```
 
 ---
 
-## Reserved Fields
-
-These fields exist on all GameObjects regardless of Kind:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | ULID | Unique identifier |
-| `game_id` | ULID | Parent Game |
-| `kind` | string | Kind name |
-| `parent` | ref | Optional hierarchical parent |
-| `archived` | boolean | Soft-delete flag |
-| `owner` | selector | Who owns this object |
-| `acl` | ACLEntry[] | Access control |
-
----
-
-## Expression Language (Overview)
+## Expression Language
 
 A simple DSL used throughout the system for:
 - Meter bounds (min/max)
@@ -325,12 +397,28 @@ min(self.spec.hp, 10)
 max(x, y)
 floor(x)
 ceil(x)
+sum(self.spec.bonds.*.spec.loyalty)
 
 # List membership
 target in self.spec.allies
+
+# Cross-object traversal
+self.spec.bonds.*.spec.loyalty    # Returns list of values
+sum(self.spec.faction.spec.members.*.spec.influence)
 ```
 
-**Note**: Full expression language spec to be defined separately. This is the expected feature set.
+### Expression Constraints
+
+- **No time references**: Expressions cannot access `now` or timestamps. Time-based logic handled by Events/Triggers.
+- **Null handling**: Return null when paths don't resolve; GM is notified via system note.
+- **Archived refs**: Skipped in traversal by default.
+- **Deterministic**: Same inputs always produce same outputs.
+
+### Error Handling
+
+- **Decision**: Return null and create system note for GM
+- **Rationale**: Keeps status computable while not silently hiding issues
+- **Implications**: GM sees notification of expression errors; can investigate and fix
 
 ---
 
@@ -361,6 +449,31 @@ default_objects:
 
 ---
 
+## Well-Known Kinds
+
+### Required by System
+
+| Kind | Purpose |
+|------|---------|
+| Game | The campaign instance. Every Paradigm must define this. Targets for signal Events. |
+
+### Common (Advisory)
+
+Most Paradigms will define variations of these:
+
+| Kind | Purpose |
+|------|---------|
+| Character | PCs and NPCs |
+| Faction | Organizations, groups |
+| Location | Places in the world |
+| Clock | Progress trackers |
+| Item | Equipment, resources |
+| Session | Play session metadata |
+
+See separate examples documentation for game-specific implementations.
+
+---
+
 ## Dangling Reference Handling
 
 When a GameObject is archived, refs pointing to it become "dangling":
@@ -380,21 +493,22 @@ When a GameObject is archived, refs pointing to it become "dangling":
 
 | Spec | Implication |
 |------|-------------|
-| [events.md](events.md) | `object.create` payload includes `kind` and `initial_data` matching Kind schema |
+| [events.md](events.md) | `object.create` payload includes `kind` and `initial_data` matching Kind schema; MeterOverflow/Underflow events defined |
 | [actions-drafts.md](actions-drafts.md) | ActionDefs can target specific Kinds; Kinds can list available Actions |
-| [triggers.md](triggers.md) | Triggers can match on object Kind; expressions use the shared DSL |
-| [projections.md](projections.md) | Status fields are projections; invalidation tracking needed |
-| [paradigms.md](paradigms.md) | Paradigms define Kinds with the schema format above; plus default_objects |
+| [triggers.md](triggers.md) | Triggers can match on object Kind and MeterOverflow/Underflow events; expressions use the shared DSL |
+| [projections.md](projections.md) | Status fields are projections; synchronous recomputation on read |
+| [paradigms.md](paradigms.md) | Paradigms define Kinds with the schema format above; plus default_objects; must define Game Kind |
 
 ---
 
 ## Open for Future Refinement
 
-- [ ] Full expression language specification
+- [ ] Full expression language specification (formal grammar)
 - [ ] Kind inheritance/mixins
 - [ ] More complex player-character association
-- [ ] Status computation optimization strategies
+- [ ] Enum/choice field types
+- [ ] Schema validation rules beyond types
 
 ---
 
-_This document reflects decisions made 2026-01-10. Marked for future refinement pass._
+_Interrogation complete 2026-01-10. All core decisions made for MVP 0._
