@@ -6,7 +6,7 @@ This is the central index for all design specifications. Each domain area links 
 
 **Status indicators:**
 - 🔴 Not started — needs initial interrogation
-- 🟡 In progress — has content, needs deepening  
+- 🟡 In progress — has content, needs deepening
 - 🟢 Complete — no open questions remain
 - 🔄 Needs revision — downstream decisions may have invalidated something
 
@@ -31,6 +31,8 @@ This is the central index for all design specifications. Each domain area links 
 - Drafts are separate entities from Events (honors World/Workflow split)
 - Events are append-only and immutable
 - Triggers can emit direct Events OR Drafts (configurable per trigger)
+- EventTypes are named semantic schemas; Events store both type + operations
+- Game itself is a GameObject (can be targeted by signal Events)
 
 ---
 
@@ -44,7 +46,7 @@ This is the central index for all design specifications. Each domain area links 
 - No auth system (trust the caller)
 - **Goal**: Prove the core loop works
 
-### MVP 1: Multi-Game Platform  
+### MVP 1: Multi-Game Platform
 - Shared User accounts across games
 - Multiple Games per instance
 - Paradigm registry
@@ -79,13 +81,13 @@ Spec order (conceptual depth):
 
 | Area | Doc | Status | Key Open Questions |
 |------|-----|--------|-------------------|
-| Events | [events.md](domains/events.md) | 🟡 | Canonical event types, payload schemas, causality tracking |
-| GameObjects | [game-objects.md](domains/game-objects.md) | 🔴 | Kind schema, spec vs status, polymorphism |
-| Actions & Drafts | [actions-drafts.md](domains/actions-drafts.md) | 🔴 | ActionDef structure, Draft lifecycle, approval policies |
-| Triggers | [triggers.md](domains/triggers.md) | 🔴 | Match syntax, guard conditions, emission rules, cascade limits |
-| Projections | [projections.md](domains/projections.md) | 🔴 | What projections MVP needs, rebuild strategy |
+| Events | [events.md](domains/events.md) | 🟢 | — |
+| GameObjects | [game-objects.md](domains/game-objects.md) | 🔄 | Kind schema must support Meter and Ref field types; PC vs NPC modeling |
+| Actions & Drafts | [actions-drafts.md](domains/actions-drafts.md) | 🔄 | Actions reference EventTypes; Drafts hold EventType + parameters |
+| Triggers | [triggers.md](domains/triggers.md) | 🔄 | Match primarily on EventType name (semantic); can filter on operations |
+| Projections | [projections.md](domains/projections.md) | 🔄 | Consume Operation layer of Events |
 | Permissions | [permissions.md](domains/permissions.md) | 🔴 | Selector syntax, ACL model, visibility filtering |
-| Paradigms | [paradigms.md](domains/paradigms.md) | 🔴 | YAML schema, dependency resolution, conflict detection |
+| Paradigms | [paradigms.md](domains/paradigms.md) | 🔄 | Needs `event_types` section; Kinds need Meter/Ref field types |
 
 ---
 
@@ -96,7 +98,7 @@ Spec order (conceptual depth):
 | Epic | Doc | Status | Blocked By |
 |------|-----|--------|------------|
 | Overview | [overview.md](implementation/mvp-0/overview.md) | 🔴 | Domain specs |
-| Epic 1: Event Core | TBD | 🔴 | events.md |
+| Epic 1: Event Core | TBD | 🔴 | events.md ✅ |
 | Epic 2: GameObject Core | TBD | 🔴 | game-objects.md |
 | Epic 3: Action/Draft Flow | TBD | 🔴 | actions-drafts.md |
 | Epic 4: Trigger Engine | TBD | 🔴 | triggers.md |
@@ -114,20 +116,44 @@ Spec order (conceptual depth):
 ## Dependency Graph
 
 ```
-Events (primitive)
+Events (primitive) ✅
     ↓
-GameObjects (what Events target)
+GameObjects (what Events target) 🔄
     ↓
-Actions & Drafts (how Events are proposed)
+Actions & Drafts (how Events are proposed) 🔄
     ↓
-Triggers (how Events cause more Events)
+Triggers (how Events cause more Events) 🔄
     ↓
-Projections (derived from Events)
+Projections (derived from Events) 🔄
     ↓
 Permissions (gates Actions, filters Projections)
     ↓
-Paradigms (packages all of the above)
+Paradigms (packages all of the above) 🔄
 ```
+
+---
+
+## Recent Changes
+
+### 2026-01-09: Events Spec Complete
+
+Key decisions made:
+- **EventType vs Event**: EventTypes are named semantic schemas (e.g., `DowntimePasses`). Events are instances that store both the type name AND the operations performed.
+- **Two-layer model**: Semantic layer for trigger matching, Operations layer for projection updates.
+- **8 operation types**: `object.create`, `object.update`, `object.archive`, `meter.delta`, `meter.set`, `ref.set`, `ref.add`, `ref.remove`
+- **Meters and Refs**: Special field types declared in Kind schemas with dedicated operations.
+- **Signal Events**: Events with no operations that target the Game object for global broadcasts.
+- **Notes**: Moved to Workflow Domain as separate entity (not an operation type).
+- **ID format**: ULID for global uniqueness + timestamp embedding.
+- **Ordering**: Per-Game sequence number for strict ordering.
+- **Causality**: Immediate parent + root draft tracking.
+
+Specs needing revision due to Events decisions:
+- `game-objects.md` — Kinds must support Meter and Ref field types
+- `actions-drafts.md` — Actions reference EventTypes
+- `triggers.md` — Match on EventType names
+- `projections.md` — Consume Operations layer
+- `paradigms.md` — Needs `event_types` section
 
 ---
 
@@ -138,4 +164,4 @@ See [glossary.md](glossary.md) for canonical definitions of all terms.
 ---
 
 ## Last Updated
-_This document is maintained by the `/interrogate` command._
+_2026-01-09 — Events spec interrogation complete._
