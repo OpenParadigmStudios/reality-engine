@@ -213,6 +213,19 @@ A seed GameObject defined in a Paradigm. Created when a Game starts (or on deman
 
 ---
 
+## Narrative
+
+### Story
+A well-known Kind representing a narrative arc, quest, project, or goal. Stories belong to Characters or Factions and track the evolution of fiction over time. Unlike most GameObjects that change via meter operations, Stories track their evolution through StoryBeat child objects. Lifecycle is managed via tags (active, completed, abandoned, on-hold) rather than formal states.
+
+### StoryBeat
+A child GameObject of a Story that captures a moment in the Story's evolution. Contains a description snapshot (the Story's state at that point) and a summary for Feed display. May include refs to Events or Characters that prompted the beat. Uses the `parent` field to link to its Story.
+
+### Narrative Gate
+A progression pattern that requires both mechanical progress (meter thresholds) AND narrative completion (Story with `completed` tag). Example: "Advance faction tier requires 8 project progress plus completing a Story about the advancement."
+
+---
+
 ## Sessions & Time
 
 ### Session
@@ -254,16 +267,25 @@ A ref field pointing to an archived (soft-deleted) GameObject. When detected, th
 
 ## System Events
 
-### MeterOverflow
-A system-generated Event emitted when a meter operation (delta/set) attempts to exceed the meter's maximum bound. The value is clamped to max. Contains:
-- Primary target: the object whose meter clamped
-- Refs: includes Game for global watchers
-- Payload: meter name, attempted value, clamped value, overflow amount
+System events are EventTypes defined in the Core Paradigm. They are automatically emitted by the engine during lifecycle moments. System events inherit their actor from the parent event that caused them.
 
-Triggers can react to these events (e.g., an ability that converts excess HP to shields).
+### Core Paradigm
+A required Paradigm that defines system EventTypes. Implicitly included in all Games (MVP 0). Contains: MeterOverflow, MeterUnderflow, ObjectCreated, ObjectArchived, RefDangling.
+
+### MeterOverflow
+Emitted when a meter operation attempts to exceed the meter's maximum bound. The value is clamped to max. Payload includes meter name, requested value, and overflow amount. Emitted as a child event (depth+1) after the parent event commits.
 
 ### MeterUnderflow
-A system-generated Event emitted when a meter operation attempts to go below the meter's minimum bound. Symmetric to MeterOverflow. Contains the same structure with underflow amount.
+Emitted when a meter operation attempts to go below the meter's minimum bound. Symmetric to MeterOverflow. Payload includes meter name, requested value, and underflow amount.
+
+### ObjectCreated
+Emitted when an `object.create` operation commits. Primary target is the newly created object. Payload includes the Kind name. Enables triggers to react to object creation (e.g., initialize related objects).
+
+### ObjectArchived
+Emitted when an `object.archive` operation commits. Primary target is the archived object. Payload includes the Kind name. Triggers can react to archival (e.g., cleanup, notifications).
+
+### RefDangling
+Emitted once per dangling reference discovered when an object is archived. Primary target is the object containing the dangling ref. Payload includes the field name and archived object ID/Kind. Surfaces in GM workflow for resolution.
 
 ---
 

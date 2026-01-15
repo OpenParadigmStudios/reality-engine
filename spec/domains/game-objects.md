@@ -1,6 +1,6 @@
 # GameObjects — Domain Specification
 
-**Status**: 🟢 Complete
+**Status**: 🟡 In progress
 **Last interrogated**: 2026-01-10
 **Depends on**: [events.md](events.md)
 **Depended on by**: [actions-drafts.md](actions-drafts.md), [triggers.md](triggers.md), [projections.md](projections.md)
@@ -469,8 +469,94 @@ Most Paradigms will define variations of these:
 | Clock | Progress trackers |
 | Item | Equipment, resources |
 | Session | Play session metadata |
+| Story | Narrative arcs, quests, projects, goals |
+| StoryBeat | Moments in a Story's evolution (child of Story) |
 
 See separate examples documentation for game-specific implementations.
+
+### Story and StoryBeat Pattern
+
+Stories represent narrative arcs that evolve over time. Unlike most GameObjects that change via meter operations, Stories track their evolution through **StoryBeat child objects**.
+
+**Story** captures:
+- Current description (the narrative state)
+- Owner (Character, Faction, or Group)
+- Involved Characters
+- Related Events and other Stories
+
+**StoryBeat** captures:
+- Description snapshot at that moment
+- Summary for Feed display ("what happened")
+- Optional refs to Events/Characters that prompted the beat
+
+**Lifecycle via tags** (no formal states):
+- `active` — in progress
+- `completed` — finished successfully
+- `abandoned` — gave up
+- `on-hold` — paused
+
+**Example schemas:**
+
+```yaml
+kinds:
+  Story:
+    description: "A narrative arc, quest, project, or goal"
+    fields:
+      # Ownership
+      owner_character:
+        type: ref
+        target_kind: Character
+      owner_faction:
+        type: ref
+        target_kind: Faction
+
+      # Related entities
+      involved_characters:
+        type: ref[]
+        target_kind: Character
+      related_stories:
+        type: ref[]
+        target_kind: Story
+      related_events:
+        type: ref[]
+
+    computed: {}
+    actions: []
+
+  StoryBeat:
+    description: "A moment in a Story's evolution"
+    fields:
+      summary:
+        type: string              # Short 'what happened' for Feed
+      description_snapshot:
+        type: string              # Story description at this beat
+
+      # What prompted this beat (optional)
+      related_events:
+        type: ref[]
+      related_characters:
+        type: ref[]
+        target_kind: Character
+
+    # parent field links to Story
+    computed: {}
+    actions: []
+```
+
+**Narrative Gate Pattern:**
+
+Stories enable "mechanical + narrative" progression gates:
+
+```yaml
+# Example: Advance faction tier requires progress AND a completed Story
+actions:
+  AdvanceFactionTier:
+    preconditions:
+      - expr: self.spec.project_progress >= 8
+      - expr: "'completed' in related_story.tags"
+```
+
+This pattern enforces that players must both accumulate mechanical progress AND wrap up the narrative before advancing.
 
 ---
 

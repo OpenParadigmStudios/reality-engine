@@ -83,7 +83,7 @@ Spec order (conceptual depth):
 | Area | Doc | Status | Key Open Questions |
 |------|-----|--------|-------------------|
 | Events | [events.md](domains/events.md) | 🟢 | — |
-| GameObjects | [game-objects.md](domains/game-objects.md) | 🟢 | — |
+| GameObjects | [game-objects.md](domains/game-objects.md) | 🟡 | Story/StoryBeat pattern added; may need refinement |
 | Actions & Drafts | [actions-drafts.md](domains/actions-drafts.md) | 🔄 | Actions reference EventTypes; bidirectional Kind binding |
 | Triggers | [triggers.md](domains/triggers.md) | 🔄 | Match on EventType name; MeterOverflow/Underflow events; expression DSL |
 | Projections | [projections.md](domains/projections.md) | 🔄 | Consume Operations; sync status recomputation on read |
@@ -119,7 +119,7 @@ Spec order (conceptual depth):
 ```
 Events (primitive) ✅
     ↓
-GameObjects (what Events target) ✅
+GameObjects (what Events target) 🟡
     ↓
 Actions & Drafts (how Events are proposed) 🔄
     ↓
@@ -181,6 +181,26 @@ Specs affected by GameObject decisions:
 - `projections.md` — Sync status recomputation on read
 - `paradigms.md` — Full Kind schema format; must define Game Kind
 
+### 2026-01-10: Events Spec Updated with System Events
+
+Added system events to the Events spec:
+- **Core Paradigm**: Defines system EventTypes, implicitly included in all Games (MVP 0)
+- **5 System EventTypes**: MeterOverflow, MeterUnderflow, ObjectCreated, ObjectArchived, RefDangling
+- **Emit order**: System events emit as child events (depth+1) after parent commits
+- **Actor inheritance**: System events inherit actor from parent event
+- **No suppression**: System events always emit; triggers can ignore if uninterested
+
+### 2026-01-10: Story and StoryBeat Kinds Added
+
+Added Story and StoryBeat as well-known Kinds in game-objects.md:
+- **Story**: Narrative arcs, quests, projects, goals. Owned by Characters or Factions.
+- **StoryBeat**: Child objects that capture moments in a Story's evolution. Contains description snapshot + summary for Feed.
+- **History tracking**: Via StoryBeat child objects (not field versioning or Event replay)
+- **Lifecycle via tags**: active, completed, abandoned, on-hold (no formal states)
+- **Narrative Gate pattern**: Combine mechanical progress (meters) + narrative completion (Story with `completed` tag)
+
+Status reverted to 🟡 — Story/StoryBeat pattern may need further refinement.
+
 ---
 
 ## Glossary
@@ -190,4 +210,4 @@ See [glossary.md](glossary.md) for canonical definitions of all terms.
 ---
 
 ## Last Updated
-_2026-01-10 — GameObjects spec complete. Next: Actions & Drafts or Triggers._
+_2026-01-10 — Story/StoryBeat added to GameObjects. Next: Actions & Drafts or Triggers._

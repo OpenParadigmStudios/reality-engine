@@ -1,7 +1,7 @@
 # Events — Domain Specification
 
 **Status**: 🟢 Complete
-**Last interrogated**: 2026-01-09
+**Last interrogated**: 2026-01-10
 **Depends on**: None (primitive)
 **Depended on by**: [game-objects.md](game-objects.md), [actions-drafts.md](actions-drafts.md), [triggers.md](triggers.md), [projections.md](projections.md)
 
@@ -112,6 +112,24 @@ Both layers are stored on every Event.
 - **Decision**: Optional session_id field
 - **Rationale**: Useful for grouping by play date, but some Events happen outside sessions
 - **Implications**: Session is a separate entity that Events can reference
+
+### System Events
+
+- **Decision**: System events are EventTypes defined in a Core Paradigm
+- **Rationale**: Keeps all EventTypes in the same model; Core Paradigm is implicitly included in all Games (MVP 0)
+- **Implications**: System events are normal EventTypes that happen to always be available; triggers match them like any other EventType
+
+### System Event Actor
+
+- **Decision**: System events inherit actor from parent event
+- **Rationale**: Maintains audit trail to the original user/trigger that caused the cascade
+- **Implications**: Actor tracking is consistent; can trace back to human action
+
+### System Event Suppression
+
+- **Decision**: System events always emit; cannot be suppressed
+- **Rationale**: Simpler model; triggers can ignore events they don't care about
+- **Implications**: All lifecycle moments are visible to triggers; no per-Kind configuration
 
 ---
 
@@ -292,6 +310,141 @@ event_types:
 
 ---
 
+## System Events (Core Paradigm)
+
+The Core Paradigm defines system events that the engine emits automatically during lifecycle moments. These are normal EventTypes that are always available in every Game.
+
+### Core Paradigm Inclusion
+
+- **MVP 0**: Core Paradigm is implicitly included in all Games
+- **MVP 1+**: Core Paradigm must be explicitly listed in Game's paradigms
+
+### System EventTypes
+
+#### MeterOverflow
+
+Emitted when a meter operation attempts to exceed the meter's maximum bound.
+
+```yaml
+event_types:
+  MeterOverflow:
+    description: "A meter was clamped at its maximum bound"
+    targets:
+      primary: any              # The object whose meter overflowed
+    parameters:
+      meter:
+        type: string            # Meter field name
+      requested:
+        type: number            # The value that was attempted
+      overflow:
+        type: number            # Amount over the max (positive)
+    operations: []              # No mutations; informational only
+    tags: [system, meter, overflow]
+```
+
+- **Primary target**: The object whose meter clamped
+- **Refs**: Includes Game for global watchers
+- **Emit timing**: After parent event commits, as child (depth+1)
+- **Actor**: Inherited from parent event
+
+#### MeterUnderflow
+
+Emitted when a meter operation attempts to go below the meter's minimum bound.
+
+```yaml
+event_types:
+  MeterUnderflow:
+    description: "A meter was clamped at its minimum bound"
+    targets:
+      primary: any              # The object whose meter underflowed
+    parameters:
+      meter:
+        type: string            # Meter field name
+      requested:
+        type: number            # The value that was attempted
+      underflow:
+        type: number            # Amount under the min (positive)
+    operations: []              # No mutations; informational only
+    tags: [system, meter, underflow]
+```
+
+#### ObjectCreated
+
+Emitted when an object.create operation commits.
+
+```yaml
+event_types:
+  ObjectCreated:
+    description: "A new GameObject was created"
+    targets:
+      primary: any              # The newly created object
+    parameters:
+      kind:
+        type: string            # Kind of the created object
+    operations: []              # No mutations; informational only
+    tags: [system, lifecycle, created]
+```
+
+- **Primary target**: The newly created object
+- **Refs**: Includes Game for global watchers
+- **Emit timing**: After parent event commits, as child
+
+#### ObjectArchived
+
+Emitted when an object.archive operation commits.
+
+```yaml
+event_types:
+  ObjectArchived:
+    description: "A GameObject was archived (soft-deleted)"
+    targets:
+      primary: any              # The archived object
+    parameters:
+      kind:
+        type: string            # Kind of the archived object
+    operations: []              # No mutations; informational only
+    tags: [system, lifecycle, archived]
+```
+
+#### RefDangling
+
+Emitted once per dangling reference discovered when an object is archived.
+
+```yaml
+event_types:
+  RefDangling:
+    description: "A reference now points to an archived object"
+    targets:
+      primary: any              # The object with the dangling ref
+    parameters:
+      field:
+        type: string            # Ref field name
+      archived_id:
+        type: string            # ID of the archived object
+      archived_kind:
+        type: string            # Kind of the archived object
+    operations: []              # No mutations; informational only
+    tags: [system, ref, dangling]
+```
+
+- **Primary target**: The object containing the dangling ref
+- **Refs**: Includes the archived object and Game
+- **Emit timing**: After ObjectArchived, as sibling (same depth)
+
+### System Event Cascade Order
+
+When an event with operations commits:
+
+1. Parent event commits
+2. For each operation that triggers a system event:
+   - If `meter.delta`/`meter.set` clamps → emit MeterOverflow or MeterUnderflow
+   - If `object.create` → emit ObjectCreated
+   - If `object.archive` → emit ObjectArchived, then RefDangling for each affected ref
+3. Normal triggers evaluate and fire
+4. Cascade continues
+
+---
+
 ## Cascade Example
 
 **Scenario**: GM invokes "Start Downtime" action
@@ -338,10 +491,10 @@ event_types:
 |------|-------------|
 | [game-objects.md](game-objects.md) | Kinds must declare Meter and Ref field types in schema |
 | [actions-drafts.md](actions-drafts.md) | Actions reference EventTypes; Drafts hold EventType + parameters |
-| [triggers.md](triggers.md) | Triggers match on EventType name (semantic) + can filter on operations |
+| [triggers.md](triggers.md) | Triggers match on EventType name (semantic) + can filter on operations; system events available for matching |
 | [projections.md](projections.md) | Projections consume Operation layer to update state |
-| [paradigms.md](paradigms.md) | Paradigm YAML needs `event_types` section |
+| [paradigms.md](paradigms.md) | Paradigm YAML needs `event_types` section; Core Paradigm is implicitly included |
 
 ---
 
-_Interrogation complete. This document reflects decisions made 2026-01-09._
+_Interrogation complete. Updated 2026-01-10 with system events (MeterOverflow, MeterUnderflow, ObjectCreated, ObjectArchived, RefDangling)._
