@@ -1,61 +1,106 @@
-# What is Reality Engine?
+# Reality Engine Documentation
 
-Reality Engine is a platform for running narrative-heavy tabletop RPG campaigns. Think of it as a smart journal, timeline, and world-tracker all in one.
+Reality Engine is a platform for running narrative-heavy tabletop RPG campaigns. It tracks what happens in your world, handles the bookkeeping, and lets consequences ripple through your game automatically.
 
-If you've ever felt overwhelmed keeping track of faction politics, character relationships, and story arcs across months of play, Reality Engine is designed to help.
+---
 
-## Who is this for?
+## Thinking in Reality Engine
 
-**Game Masters** who want to:
-- Track what happened, when, and why—without losing details
-- Run complex faction politics and downtime systems
-- Let the world react automatically to player actions
+Using Reality Engine means shifting how you think about your campaign. Instead of scattered notes and spreadsheets, you'll organize your game around three core ideas:
 
-**Players** who want to:
-- See what's happening with their characters and stories
-- Understand how different parts of the world connect
-- Review the history of their campaign
+### Your world is a collection of Things
 
-## The Core Philosophy
+Every character, faction, location, clock, item, and relationship in your game is a **GameObject**. These are the nouns of your world — the stuff that exists and can be referenced, changed, and connected.
 
-Reality Engine is built on one simple idea: **everything that happens gets recorded, and nothing gets erased.**
+A GameObject has a **Kind** that defines what it is and what properties it has. A "Character" Kind might track stress and harm. A "Faction" Kind might track tier and hold. You define the Kinds that matter for your game.
 
-When a character takes damage, that's recorded. When a faction advances their project, that's recorded. When two characters form a bond, that's recorded. These records—called Events—form the complete history of your campaign.
+### Everything that happens is an Event
 
-This means:
-- You can always see how you got here
-- The system can calculate things for you (like "how much progress has this faction made?")
-- Changes can trigger other changes automatically (like "when downtime happens, all factions advance")
+When something changes in your world, that change is recorded as an **Event**. Events are permanent and immutable — they form the complete history of your campaign.
 
-## How It Works (The Simple Version)
+This is different from overwriting data. Instead of "Whisper's stress is now 4," you record "Whisper gained 2 stress during the ghost heist." The current state is always calculated from the full history of events.
 
-Imagine your campaign as a combination of three things:
+Why does this matter? Because you can always answer "how did we get here?" You can trace back through the history, see cause and effect, and understand the story of your campaign.
 
-1. **Things** — Characters, factions, locations, clocks, items. Everything that exists in your world.
+### Automatic reactions are Triggers
 
-2. **Events** — Things that happen. Damage dealt, bonds formed, factions advancing, downtime passing. Each event is a permanent record.
+A **Trigger** watches for certain events and creates new events in response. They're the "when X happens, do Y" rules of your game.
 
-3. **Triggers** — Automatic reactions. "When downtime happens, advance all faction projects by 1." The system handles the bookkeeping.
+When downtime happens, advance all faction clocks by 1. When a character takes their fourth harm, mark them as incapacitated. When the Bluecoats' clock fills, they raid the crew's lair.
 
-When you play:
-1. Something happens (a player action, the GM narrating)
-2. An event gets recorded
-3. Triggers check if they should react
-4. More events might cascade from those reactions
-5. The world state updates to reflect everything
+Triggers let you encode the mechanical cause-and-effect of your game so the system handles the bookkeeping while you focus on the fiction.
 
-## What Makes It Different
+---
 
-**It's not a virtual tabletop.** Reality Engine doesn't replace your maps, dice, or video calls. It handles the narrative bookkeeping that happens alongside play.
+## Mapping Your Game
 
-**It's event-sourced.** Instead of overwriting data ("HP is now 5"), it records changes ("took 3 damage"). This means you always have the full story of how things got to where they are.
+When you bring your campaign into Reality Engine, you'll make decisions about what becomes what.
 
-**It's trigger-powered.** Complex systems like Blades in the Dark's downtime or faction turns can run automatically once you set them up. The system does the mechanical bookkeeping while you focus on the story.
+### What becomes a GameObject?
+
+Anything you'd want to track, reference, or change over time:
+- **Characters** — PCs and NPCs
+- **Factions** — Organizations with goals and resources
+- **Locations** — Places that matter to the fiction
+- **Clocks** — Progress trackers, countdowns, threats
+- **Items** — Significant equipment or artifacts
+- **Relationships** — Bonds, debts, rivalries between entities
+
+If you'd put it on an index card or a wiki page, it's probably a GameObject.
+
+### What becomes an Event?
+
+Any change that matters to the fiction or mechanics:
+- Taking or healing harm
+- Gaining or spending resources
+- Clocks advancing or completing
+- Relationships forming or breaking
+- Factions making moves
+- Time passing (downtime, seasons, years)
+
+If you'd want to remember it happened, it's probably an Event.
+
+### What becomes a Trigger?
+
+Any automatic consequence or mechanical rule:
+- "When downtime begins, advance all faction projects"
+- "When stress reaches 9, trigger trauma"
+- "When the score ends, notify the GM to resolve entanglements"
+
+If you'd otherwise have to remember to do it manually every time, it's probably a Trigger.
+
+---
+
+## Example: A Blades in the Dark Campaign
+
+Here's how a Blades campaign might map to Reality Engine:
+
+**GameObjects:**
+- The crew (with tier, rep, heat, coin, claims)
+- Each PC (with stress, trauma, harm, abilities)
+- Factions (Bluecoats, Lampblacks, Red Sashes, etc.)
+- Faction clocks ("Bluecoats investigate the crew")
+- Locations (Doskvol districts, the crew's lair, faction HQs)
+
+**Events:**
+- "Whisper took 2 stress during the Deathlands heist"
+- "Crew gained 4 coin from the score"
+- "Lampblacks clock advanced 1 segment (now 4/8)"
+- "Downtime began after the Charterhall job"
+
+**Triggers:**
+- "When downtime begins, advance all active faction clocks by 1"
+- "When a PC's stress reaches 9+, trigger trauma and reset stress"
+- "When heat reaches 4+, alert GM about impending entanglements"
+
+The result: you run the score, record what happened, and Reality Engine handles the faction turns, reminds you about consequences, and keeps the full history of how Doskvol has changed.
+
+---
 
 ## Learn More
 
-- [How History Works](concepts/events.md) — Understanding events and how changes cascade
-- [Things in Your World](concepts/game-objects.md) — Characters, factions, and everything else
+- [Events](concepts/events.md) — How history works and how changes cascade
+- [Game Objects](concepts/game-objects.md) — Characters, factions, and everything in your world
 - [Glossary](reference/glossary.md) — Plain-language definitions of key terms
 
 ---
