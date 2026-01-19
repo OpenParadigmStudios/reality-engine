@@ -34,11 +34,13 @@ Events can change your world in several ways:
 
 **Creating things.** A new NPC joins the story. A faction establishes a new front.
 
-**Forming relationships.** Marcus and Elena become bonded. The Hive becomes allied with the Dimmer Sisters.
+**Forming relationships.** Marcus and Elena become bonded. The Hive becomes allied with the Dimmer Sisters. Relationships can carry context too—Marcus isn't just "connected to" the Lampblacks, he's their "informant" and "founding member."
 
 **Breaking relationships.** The alliance crumbles. A character leaves a faction.
 
 **Removing things.** A character dies (or leaves the story). A faction disbands. These aren't deleted—they're marked as "no longer active" so the history remains intact.
+
+**Adding context to relationships.** You can tag relationships with roles and context. A faction's "allies" might include one tagged as "grudging" and another as "blood oath." These tags help you remember *how* things are connected, not just *that* they're connected.
 
 ## Announcements: Events Without Changes
 
@@ -78,6 +80,14 @@ The system also emits automatic events when certain things happen:
 **When relationships break.** If you remove a faction and characters were members of it, the system flags those now-broken relationships so the GM can resolve them.
 
 These automatic events keep everyone informed and give triggers more opportunities to react.
+
+## Stories Remember Their Events
+
+When an event affects a story—a quest, a character arc, a faction scheme—that connection is automatically recorded. You don't have to manually link "the warehouse fight" to "Cassandra's revenge arc." If the event targets the story, the story remembers it.
+
+This means you can always see the complete history of any narrative arc: all the events that shaped it, in order. "What happened in Elena's redemption story?" shows every event that touched that story, building a complete picture of how the narrative unfolded.
+
+If you're recording something purely administrative (fixing a typo in a story's description, for example), you can opt out of this auto-linking. But by default, stories accumulate their own history automatically.
 
 ## The Complete History
 

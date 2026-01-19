@@ -66,6 +66,13 @@ A number with limits that can trigger reactions. HP (can't go below 0 or above m
 
 ---
 
+## N
+
+### Nestable
+A type of thing that can contain others of its own type. Stories are nestable—a story can contain other stories. Locations are nestable—a building contains rooms. This creates natural hierarchies where "parent" and "child" are relative terms.
+
+---
+
 ## O
 
 ### Operation
@@ -105,10 +112,10 @@ The authoritative data about something—what you've deliberately set. A charact
 Calculated data about something—what the system derives from spec. A character's status includes their max HP (calculated from constitution) and their bond count (calculated from their bonds list). Status updates automatically when spec changes.
 
 ### Story
-A narrative arc being tracked over time. Unlike most things that change through meter adjustments, stories evolve through story beats—snapshots of progress. Use stories for quests, character goals, faction schemes, and ongoing plots.
+A narrative arc being tracked over time. Stories can contain other stories, creating hierarchies from campaign-level arcs down to scene-level beats. Whether something is a "beat" or an "arc" depends on your perspective—it's all stories, nested inside each other. Stories track their owners (with roles), their state (active, completed, abandoned), and automatically collect related events.
 
-### Story Beat
-A moment in a story's evolution. "The crew discovered the blackmail letters." "Elena confronted her past." Each beat records what happened and when, building a complete arc.
+### Tagged Ref
+A relationship (reference) that carries context. Instead of just knowing that Marcus is "connected to" the Lampblacks, a tagged ref records that he's their "informant" and "founding member." Tags are simple labels that describe *how* things are related.
 
 ---
 

@@ -58,30 +58,48 @@ These connections are tracked explicitly. When you ask "who are Marcus's allies?
 
 Connections can be one-to-one (a character has one home district) or one-to-many (a character has many bonds).
 
+## Relationships With Context
+
+Connections can carry tags that describe *how* things are related, not just *that* they're related.
+
+Marcus isn't just "connected to" the Lampblacks—he's their "informant" and "founding member." The Dimmer Sisters aren't just "allied with" the Hive—it's a "blood oath" alliance. Cassandra's bond with Elena isn't just "exists"—it's marked as "strained" and "family."
+
+These tags let you capture the nuance of relationships. When you're looking at a faction's allies, you can immediately see which ones are reliable and which ones are grudging. When you're reviewing a character's bonds, you can see the texture of those connections.
+
+Tags are just simple labels—you can use whatever makes sense for your game. The system doesn't enforce any particular vocabulary; it just remembers what you tell it.
+
+## Finding Related Things
+
+Reality Engine can answer questions about your world: "Which stories does Marcus own?" "What characters are in the Docks district?" "Are there any active clocks threatening the crew?"
+
+These questions work across your entire game. You're not limited to following links from one thing to another—you can ask broad questions and get answers that span the whole world.
+
+This is especially powerful for calculated values. A faction's "active projects" can automatically include all stories where that faction is an owner and the story is tagged as active. A character's "enemies" can include everyone who has a bond with them tagged as "rival" or "vendetta." These collections update automatically as your world changes.
+
 ## Containing Things in Other Things
 
 Some things naturally contain other things: rooms are in buildings, buildings are in districts, districts are in cities.
 
 Every thing can optionally have a "parent" it lives inside. This creates a natural hierarchy you can navigate. "Show me everything in the Docks district" works automatically.
 
-## Stories and Story Beats
+## Stories Within Stories
 
 Stories are how you track narrative arcs—quests, character goals, faction schemes, ongoing plots.
 
-Unlike most things that change through meter adjustments ("HP went down by 3"), stories evolve through **story beats**. Each beat is a snapshot of what happened in that story at that moment.
+Here's what makes stories special: **stories can contain other stories**. A campaign-level arc ("The Fall of Doskvol") can contain faction-level arcs ("The Lampblacks' Rise"), which can contain personal arcs ("Marcus's Revenge"), which can contain scene-level beats ("The Warehouse Confrontation").
+
+Whether something is a "beat" or an "arc" depends on where you're standing. From the campaign level, "Marcus's Revenge" is just a beat. From Marcus's perspective, it's an entire arc with its own structure.
 
 **A Story** tracks:
 - What's happening (current description)
-- Who owns it (which character or faction)
-- Who's involved
-- What state it's in (active, completed, abandoned)
+- A summary for activity feeds
+- Who owns it (which characters or factions—and in what role)
+- What state it's in (active, completed, abandoned, on-hold)
+- What events have touched it (automatically tracked)
 
-**A Story Beat** records:
-- What just happened
-- A short summary for activity feeds
-- Links to the events or characters that prompted it
+**Story ownership with roles.** A story can have multiple owners with different roles. The Lampblacks' faction project might have the faction as "primary" owner, with three characters tagged as "leads" and one as "saboteur." These roles help you remember who's involved and how.
 
-When a story progresses, you add a beat. When it resolves, you add a final beat and mark it complete. The full arc is preserved—you can always see how a story evolved.
+When you want to see how a story evolved, you look at its child stories and related events. The full arc is preserved in the hierarchy—you can always trace how the narrative unfolded from campaign down to individual scenes.
 
 ## Removing Things (But Keeping History)
 
