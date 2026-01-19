@@ -36,6 +36,9 @@ A schema defining a type of GameObject. Kinds are defined in Paradigms and speci
 
 For MVP, Kinds are standalone (no inheritance). Future: mixins/traits or single inheritance.
 
+### Nestable Kind
+A Kind where objects can have parent refs to objects of the same Kind, enabling recursive hierarchies. Implemented using the standard `parent` field with `target_kind` constrained to the Kind itself. Examples: Story (arcs containing beats), Location (Room → Building → City). No special flag required—nestability is a pattern achieved through Kind constraints.
+
 ---
 
 ## Events
@@ -99,6 +102,9 @@ Ref fields enable:
 - Referential integrity alerting (dangling reference detection)
 - Reverse lookup indexing
 - Clean trigger matching on relationship changes
+
+### Tagged Ref
+A ref with optional string tags for metadata. All refs can carry tags—simple string arrays that annotate the reference. Structure: `{target: <id>, tags?: string[]}`. Tags enable role annotation (e.g., `['primary', 'founder']`), relationship types (e.g., `['ally', 'rival']`), and provenance tracking. Operations `ref.add` and `ref.set` accept an optional `tags` parameter; `ref.tag` modifies tags on existing refs.
 
 ### Parent
 A reserved ref field on all GameObjects providing hierarchical containment. Optional (nullable). Used for structures like Rooms inside Buildings inside Cities. When a parent is archived, child objects surface as dangling refs for GM resolution.
@@ -216,10 +222,7 @@ A seed GameObject defined in a Paradigm. Created when a Game starts (or on deman
 ## Narrative
 
 ### Story
-A well-known Kind representing a narrative arc, quest, project, or goal. Stories belong to Characters or Factions and track the evolution of fiction over time. Unlike most GameObjects that change via meter operations, Stories track their evolution through StoryBeat child objects. Lifecycle is managed via tags (active, completed, abandoned, on-hold) rather than formal states.
-
-### StoryBeat
-A child GameObject of a Story that captures a moment in the Story's evolution. Contains a description snapshot (the Story's state at that point) and a summary for Feed display. May include refs to Events or Characters that prompted the beat. Uses the `parent` field to link to its Story.
+A well-known Kind representing a narrative arc, quest, project, or goal. Stories are **recursively nestable**—a Story can contain child Stories (using the `parent` field), enabling hierarchical narrative structure where "beat" vs "arc" is purely contextual based on hierarchy position. Stories have polymorphic `owners` (Characters, Factions, etc.) via tagged refs. Lifecycle is managed via tags (active, completed, abandoned, on-hold) rather than formal states.
 
 ### Narrative Gate
 A progression pattern that requires both mechanical progress (meter thresholds) AND narrative completion (Story with `completed` tag). Example: "Advance faction tier requires 8 project progress plus completing a Story about the advancement."
@@ -247,8 +250,13 @@ A simple domain-specific language used throughout the system for computed values
 - Conditionals (`if x then y else z`)
 - Functions (`len`, `min`, `max`, `floor`, `ceil`)
 - List membership (`x in list`)
+- **Query DSL**: `find('<Kind>').where(<condition>)` for projection-style queries
+- List predicates: `any`, `all`, `none` for complex filtering
 
-Used in: Meter bounds, computed status fields, Trigger conditions, Action preconditions, conditional EventType operations.
+Used in: Meter bounds, computed status fields, Trigger conditions, Action preconditions, conditional EventType operations. All queries are scoped to the current Game—cross-game queries are forbidden.
+
+### Computed Collection
+A status field that uses the Query DSL to dynamically find related objects. Example: `active_children: find('Story').where(parent == self).where(tags contains 'active')`. Computed collections are re-evaluated on read when status is invalidated, providing live views of related data without manual bookkeeping.
 
 ---
 
@@ -296,4 +304,4 @@ A Workflow Domain construct that presents a filtered list of information updates
 
 ---
 
-_Last updated during interrogation 2026-01-10. Terms are added as they emerge in spec discussions._
+_Last updated 2026-01-18. Added: Tagged Ref, Nestable Kind, Computed Collection, Query DSL. Updated: Story (recursive nesting), Expression DSL (query capabilities). Removed: StoryBeat._

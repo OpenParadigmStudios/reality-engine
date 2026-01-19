@@ -1,7 +1,7 @@
 # GameObjects — Domain Specification
 
 **Status**: 🟡 In progress
-**Last interrogated**: 2026-01-10
+**Last interrogated**: 2026-01-18
 **Depends on**: [events.md](events.md)
 **Depended on by**: [actions-drafts.md](actions-drafts.md), [triggers.md](triggers.md), [projections.md](projections.md)
 
@@ -232,6 +232,65 @@ fields:
 - **Null handling**: Null refs are skipped silently in traversal
 - **Explicit inclusion**: Use filter syntax to include archived: `bonds[all].*`
 
+### Tagged Refs
+
+All refs can carry optional metadata via **tags**—a simple string array attached to each reference.
+
+**Structure:**
+
+Refs are stored as objects rather than bare IDs:
+
+```yaml
+# Simple ref (no tags)
+faction: char_123
+
+# Tagged ref
+faction:
+  target: char_123
+  tags: ['primary', 'founder']
+
+# Ref list with mixed tagging
+owners:
+  - target: char_001
+    tags: ['primary']
+  - target: faction_002
+    tags: ['supporting', 'sponsor']
+  - target: char_003    # No tags
+```
+
+**Use cases:**
+- **Role annotation**: `owners` refs tagged with `['primary']`, `['antagonist']`, etc.
+- **Relationship types**: `bonds` refs tagged with `['ally']`, `['rival']`, `['family']`
+- **Provenance**: `related_events` refs tagged with `['trigger']`, `['manual']`
+
+**Operations:**
+
+The `ref.add` operation accepts an optional `tags` parameter:
+
+```yaml
+operations:
+  - op: ref.add
+    target: $story_id
+    payload:
+      field: owners
+      target_id: $character_id
+      tags: ['primary', 'founder']
+```
+
+See [events.md](events.md) for full operation details including `ref.tag` for modifying tags on existing refs.
+
+**Query access:**
+
+Tagged refs can be filtered in expressions:
+
+```
+# Find owners with 'primary' tag
+self.spec.owners[tags contains 'primary']
+
+# Check if any owner is tagged as antagonist
+self.spec.owners.any(o => o.tags contains 'antagonist')
+```
+
 ### Nested Structures
 
 ```yaml
@@ -407,12 +466,96 @@ self.spec.bonds.*.spec.loyalty    # Returns list of values
 sum(self.spec.faction.spec.members.*.spec.influence)
 ```
 
+### Query DSL
+
+The expression language includes projection-style chainable queries for finding and filtering GameObjects. Queries are available in all expression contexts (computed fields, trigger conditions, action preconditions, etc.).
+
+**IMPORTANT: All queries are scoped to the current Game.** Cross-game queries are forbidden—Games are strict isolation boundaries. This is a permanent invariant, not an MVP limitation.
+
+#### Basic Syntax
+
+```
+find('<Kind>').where(<condition>).where(<condition>)...
+```
+
+**Examples:**
+
+```
+# Find all Stories owned by the current object
+find('Story').where(owners contains self)
+
+# Find active Stories for a character
+find('Story').where(owners contains self).where(tags contains 'active')
+
+# Find Locations with a specific parent
+find('Location').where(parent == some_city)
+
+# Find Characters in a faction
+find('Character').where(faction == target)
+```
+
+#### Comparison Operators
+
+| Operator | Description | Example |
+|----------|-------------|---------|
+| `==` | Equals | `where(kind == 'Character')` |
+| `!=` | Not equals | `where(status != 'archived')` |
+| `<`, `>` | Less/greater than | `where(spec.tier > 2)` |
+| `<=`, `>=` | Less/greater or equal | `where(spec.hp <= 0)` |
+| `contains` | List contains value | `where(tags contains 'active')` |
+| `in` | Value in list | `where(self in spec.members)` |
+
+#### List Predicates
+
+For complex filtering on list fields, use `any`, `all`, or `none`:
+
+```
+# Any owner has 'primary' tag
+owners.any(o => o.tags contains 'primary')
+
+# All bonds are to Characters
+bonds.all(b => b.kind == 'Character')
+
+# No related events have 'system' tag
+related_events.none(e => e.tags contains 'system')
+
+# String operations in predicates
+tags.any(t => t startsWith 'role-')
+tags.all(t => t != 'deprecated')
+```
+
+#### Query Results
+
+Queries return collections that can be:
+- Checked for existence: `.any()` returns boolean
+- Counted: `len(find(...))` returns integer
+- Iterated: `.*.field` traverses into matched objects
+- Used in conditions: `find(...).where(...).any()`
+
+**Example computed status fields:**
+
+```yaml
+computed:
+  # Count of active child stories
+  active_story_count:
+    expr: len(find('Story').where(parent == self).where(tags contains 'active'))
+
+  # Boolean: has any completed projects
+  has_completed_project:
+    expr: find('Story').where(owners contains self).where(tags contains 'completed').any()
+
+  # List: all faction members' names
+  member_names:
+    expr: find('Character').where(faction == self).*.name
+```
+
 ### Expression Constraints
 
 - **No time references**: Expressions cannot access `now` or timestamps. Time-based logic handled by Events/Triggers.
 - **Null handling**: Return null when paths don't resolve; GM is notified via system note.
 - **Archived refs**: Skipped in traversal by default.
 - **Deterministic**: Same inputs always produce same outputs.
+- **Game isolation**: Queries ALWAYS scope to the current Game—cross-game queries are forbidden.
 
 ### Error Handling
 
@@ -469,25 +612,26 @@ Most Paradigms will define variations of these:
 | Clock | Progress trackers |
 | Item | Equipment, resources |
 | Session | Play session metadata |
-| Story | Narrative arcs, quests, projects, goals |
-| StoryBeat | Moments in a Story's evolution (child of Story) |
+| Story | Narrative arcs, quests, projects, goals (recursively nestable) |
 
 See separate examples documentation for game-specific implementations.
 
-### Story and StoryBeat Pattern
+**Note:** Each well-known Kind will eventually have its own detailed spec in `spec/domains/kinds/`. Current definitions here are structural frameworks; full field schemas, actions, and patterns will be elaborated in those per-Kind documents.
 
-Stories represent narrative arcs that evolve over time. Unlike most GameObjects that change via meter operations, Stories track their evolution through **StoryBeat child objects**.
+### Story Kind (Nestable Pattern)
 
-**Story** captures:
-- Current description (the narrative state)
-- Owner (Character, Faction, or Group)
-- Involved Characters
-- Related Events and other Stories
+Stories represent narrative arcs that evolve over time. Stories are **recursively nestable**—a Story can contain child Stories, enabling hierarchical narrative structure (campaign arcs containing character arcs containing scene-level beats).
 
-**StoryBeat** captures:
-- Description snapshot at that moment
-- Summary for Feed display ("what happened")
-- Optional refs to Events/Characters that prompted the beat
+**Key design decisions:**
+- **No separate StoryBeat Kind** — Stories nest within Stories. "Beat" vs "arc" is contextual based on hierarchy position.
+- **Polymorphic ownership** — `owners` ref list supports multiple owner types (Characters, Factions, etc.) with optional tags for roles.
+- **Auto-linked Events** — Events targeting a Story auto-populate `related_events` (opt-out via `link_to_story: false` on the Event).
+
+**Story captures:**
+- `summary` — short text for Feed display
+- `owners` — polymorphic ref list (Characters, Factions, etc.) with optional tags
+- `related_events` — Events that prompted or affected this Story (auto-populated)
+- `parent` — self-referential for nesting (uses standard parent field with `target_kind: [Story]`)
 
 **Lifecycle via tags** (no formal states):
 - `active` — in progress
@@ -495,20 +639,22 @@ Stories represent narrative arcs that evolve over time. Unlike most GameObjects 
 - `abandoned` — gave up
 - `on-hold` — paused
 
-**Example schemas:**
+**Example schema:**
 
 ```yaml
 kinds:
   Story:
-    description: "A narrative arc, quest, project, or goal"
+    description: "A narrative arc, quest, project, or goal (recursively nestable)"
     fields:
-      # Ownership
-      owner_character:
-        type: ref
-        target_kind: Character
-      owner_faction:
-        type: ref
-        target_kind: Faction
+      # Short description for Feed display
+      summary:
+        type: string
+
+      # Polymorphic ownership with tagged refs
+      owners:
+        type: ref[]
+        target_kind: [Character, Faction]
+        # Tags like 'primary', 'founder', 'antagonist' add context
 
       # Related entities
       involved_characters:
@@ -519,29 +665,35 @@ kinds:
         target_kind: Story
       related_events:
         type: ref[]
+        # Auto-populated when Events target this Story
+        # Events can opt-out with link_to_story: false
 
-    computed: {}
-    actions: []
+    # Self-referential nesting via standard parent field
+    # parent: {type: ref, target_kind: [Story]}
 
-  StoryBeat:
-    description: "A moment in a Story's evolution"
-    fields:
-      summary:
-        type: string              # Short 'what happened' for Feed
-      description_snapshot:
-        type: string              # Story description at this beat
+    computed:
+      # Example: find active child stories
+      active_children:
+        expr: find('Story').where(parent == self).where(tags contains 'active')
 
-      # What prompted this beat (optional)
-      related_events:
-        type: ref[]
-      related_characters:
-        type: ref[]
-        target_kind: Character
-
-    # parent field links to Story
-    computed: {}
     actions: []
 ```
+
+**Nestable Pattern:**
+
+Stories demonstrate the "nestable" pattern—any Kind can be nestable by declaring a `parent` ref with `target_kind` set to itself:
+
+```yaml
+# Nestable Location example
+kinds:
+  Location:
+    fields:
+      # ... other fields ...
+    # Enables Room → Building → City → Region hierarchy
+    # Uses reserved parent field with self-referential constraint
+```
+
+The nestable pattern uses the existing `parent` reserved field. Kinds that need nesting simply constrain `parent` to their own Kind.
 
 **Narrative Gate Pattern:**
 
@@ -553,7 +705,7 @@ actions:
   AdvanceFactionTier:
     preconditions:
       - expr: self.spec.project_progress >= 8
-      - expr: "'completed' in related_story.tags"
+      - expr: find('Story').where(owners contains self).where(tags contains 'completed').any()
 ```
 
 This pattern enforces that players must both accumulate mechanical progress AND wrap up the narrative before advancing.
@@ -579,11 +731,11 @@ When a GameObject is archived, refs pointing to it become "dangling":
 
 | Spec | Implication |
 |------|-------------|
-| [events.md](events.md) | `object.create` payload includes `kind` and `initial_data` matching Kind schema; MeterOverflow/Underflow events defined |
-| [actions-drafts.md](actions-drafts.md) | ActionDefs can target specific Kinds; Kinds can list available Actions |
-| [triggers.md](triggers.md) | Triggers can match on object Kind and MeterOverflow/Underflow events; expressions use the shared DSL |
-| [projections.md](projections.md) | Status fields are projections; synchronous recomputation on read |
-| [paradigms.md](paradigms.md) | Paradigms define Kinds with the schema format above; plus default_objects; must define Game Kind |
+| [events.md](events.md) | `object.create` payload includes `kind` and `initial_data` matching Kind schema; MeterOverflow/Underflow events defined; `ref.add` accepts `tags` parameter; `ref.tag` operation for modifying tags |
+| [actions-drafts.md](actions-drafts.md) | ActionDefs can target specific Kinds; Kinds can list available Actions; can use Query DSL in preconditions |
+| [triggers.md](triggers.md) | Triggers can match on object Kind and MeterOverflow/Underflow events; expressions and Query DSL in match conditions |
+| [projections.md](projections.md) | Status fields are projections; synchronous recomputation on read; Query DSL overlaps with projection queries—relationship needs clarification |
+| [paradigms.md](paradigms.md) | Paradigms define Kinds with the schema format above; plus default_objects; must define Game Kind; Story schema format changed |
 
 ---
 
@@ -597,4 +749,4 @@ When a GameObject is archived, refs pointing to it become "dangling":
 
 ---
 
-_Interrogation complete 2026-01-10. All core decisions made for MVP 0._
+_Last interrogated 2026-01-18. Story/StoryBeat restructured to recursive Story nesting. Tagged refs and Query DSL added. Individual Kinds need deep interrogation in `spec/domains/kinds/`._

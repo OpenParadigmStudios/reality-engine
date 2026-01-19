@@ -82,8 +82,8 @@ Spec order (conceptual depth):
 
 | Area | Doc | Status | Key Open Questions |
 |------|-----|--------|-------------------|
-| Events | [events.md](domains/events.md) | 🟢 | — |
-| GameObjects | [game-objects.md](domains/game-objects.md) | 🟡 | Story/StoryBeat pattern added; may need refinement |
+| Events | [events.md](domains/events.md) | 🔄 | Tagged refs added; needs review |
+| GameObjects | [game-objects.md](domains/game-objects.md) | 🟡 | Framework complete; individual Kinds need deep interrogation |
 | Actions & Drafts | [actions-drafts.md](domains/actions-drafts.md) | 🔄 | Actions reference EventTypes; bidirectional Kind binding |
 | Triggers | [triggers.md](domains/triggers.md) | 🔄 | Match on EventType name; MeterOverflow/Underflow events; expression DSL |
 | Projections | [projections.md](domains/projections.md) | 🔄 | Consume Operations; sync status recomputation on read |
@@ -117,7 +117,7 @@ Spec order (conceptual depth):
 ## Dependency Graph
 
 ```
-Events (primitive) ✅
+Events (primitive) 🔄
     ↓
 GameObjects (what Events target) 🟡
     ↓
@@ -135,6 +135,46 @@ Paradigms (packages all of the above) 🔄
 ---
 
 ## Recent Changes
+
+### 2026-01-18: GameObjects Restructure — Stories, Tagged Refs, Query DSL
+
+Major restructuring of GameObjects spec based on interrogation session:
+
+**Story/StoryBeat restructure:**
+- **StoryBeat Kind eliminated** — Stories are now recursively nestable; "beat" vs "arc" is contextual based on hierarchy
+- Story gains: `summary` (Feed display), `owners` (polymorphic ref list), `related_events` (auto-populated)
+- Auto-linking: Events targeting a Story auto-populate `related_events` (opt-out via `link_to_story: false`)
+
+**Tagged Refs (new feature):**
+- All refs can carry tags (simple string array): `{target: <id>, tags?: string[]}`
+- `ref.add` and `ref.set` accept optional `tags` parameter
+- New `ref.tag` operation for modifying tags on existing refs
+- Enables role annotation, relationship types, provenance tracking
+
+**Query DSL expansion:**
+- Projection-style chainable queries available in all expressions
+- Syntax: `find('Kind').where(condition).where(condition)...`
+- Operators: `contains`, `==`, `!=`, `<`, `>`, `<=`, `>=`, `in`
+- List predicates: `any`, `all`, `none` for complex filtering
+- **INVARIANT: All queries scoped to current Game** — cross-game queries forbidden
+
+**Nestable Pattern:**
+- Kinds that need nesting use `parent` ref with `target_kind: [SameKind]`
+- Applies to Story, Location, and potentially others
+- Documented as recommended pattern (no special flag)
+
+**Future work identified:**
+- Per-Kind specs in `spec/domains/kinds/` (character.md, faction.md, location.md, story.md, clock.md, session.md, game.md)
+- Each Kind spec: complete field schema, computed fields, available actions, patterns
+
+Specs affected:
+- `events.md` → 🔄 (tagged refs, `ref.tag` operation, `link_to_story` option)
+- `triggers.md` → 🔄 (can use Query DSL in match conditions)
+- `actions-drafts.md` → 🔄 (can use Query DSL in preconditions)
+- `projections.md` → 🔄 (Query DSL overlap needs clarification)
+- `paradigms.md` → 🔄 (Story schema format changed)
+
+Glossary updated: Added Tagged Ref, Nestable Kind, Computed Collection. Updated Story, Expression DSL. Removed StoryBeat.
 
 ### 2026-01-09: Events Spec Complete
 
@@ -210,4 +250,4 @@ See [glossary.md](glossary.md) for canonical definitions of all terms.
 ---
 
 ## Last Updated
-_2026-01-10 — Story/StoryBeat added to GameObjects. Next: Actions & Drafts or Triggers._
+_2026-01-18 — GameObjects restructured: Story nesting, tagged refs, Query DSL. Events updated for tagged refs. Next: Per-Kind specs in `spec/domains/kinds/`, or continue with Actions & Drafts._

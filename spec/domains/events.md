@@ -1,7 +1,7 @@
 # Events — Domain Specification
 
-**Status**: 🟢 Complete
-**Last interrogated**: 2026-01-10
+**Status**: 🔄 Needs revision
+**Last interrogated**: 2026-01-18
 **Depends on**: None (primitive)
 **Depended on by**: [game-objects.md](game-objects.md), [actions-drafts.md](actions-drafts.md), [triggers.md](triggers.md), [projections.md](projections.md)
 
@@ -144,9 +144,10 @@ These are the atomic primitives that EventTypes compose to express mutations:
 | `object.archive` | Soft-delete GameObject | (none) |
 | `meter.delta` | Adjust numeric meter by amount | `meter`, `delta` |
 | `meter.set` | Set numeric meter to absolute value | `meter`, `value` |
-| `ref.set` | Set a singular reference field | `field`, `target_id` |
-| `ref.add` | Add to a list reference field | `field`, `target_id` |
+| `ref.set` | Set a singular reference field | `field`, `target_id`, `tags?` |
+| `ref.add` | Add to a list reference field | `field`, `target_id`, `tags?` |
 | `ref.remove` | Remove from a list reference field | `field`, `target_id` |
+| `ref.tag` | Modify tags on an existing ref | `field`, `target_id`, `add_tags?`, `remove_tags?` |
 
 **Schema-aware operations**: Meters and Refs are declared as special field types in the GameObject Kind schema. Operations on these fields use the specialized ops above, enabling validation, indexing, and trigger matching.
 
@@ -254,6 +255,7 @@ payload:
 payload:
   field: string          # Ref field name
   target_id: string      # Object ID to reference (or null to clear)
+  tags: string[]         # Optional: tags to attach to this ref
 ```
 
 ### ref.add
@@ -261,6 +263,7 @@ payload:
 payload:
   field: string          # Ref list field name
   target_id: string      # Object ID to add
+  tags: string[]         # Optional: tags to attach to this ref
 ```
 
 ### ref.remove
@@ -269,6 +272,17 @@ payload:
   field: string          # Ref list field name
   target_id: string      # Object ID to remove
 ```
+
+### ref.tag
+```yaml
+payload:
+  field: string          # Ref field name (singular or list)
+  target_id: string      # Object ID of the ref to modify (required for ref lists)
+  add_tags: string[]     # Optional: tags to add
+  remove_tags: string[]  # Optional: tags to remove
+```
+
+**Note:** For singular refs, `target_id` is optional (there's only one ref to modify). For ref lists, `target_id` identifies which ref in the list to modify.
 
 ---
 
@@ -445,6 +459,42 @@ When an event with operations commits:
 
 ---
 
+## Story Auto-Linking
+
+Events that target Story GameObjects are automatically added to the Story's `related_events` ref list. This enables Stories to maintain a complete history of Events that affected them without manual bookkeeping.
+
+**Opt-out mechanism:**
+
+EventTypes can disable auto-linking by setting `link_to_story: false`:
+
+```yaml
+event_types:
+  InternalStoryUpdate:
+    description: "Administrative Story update that shouldn't appear in history"
+    targets:
+      primary: Story
+    parameters: {}
+    operations:
+      - op: object.update
+        target: $primary
+        payload:
+          path: spec.internal_notes
+          value: $notes
+    link_to_story: false    # Don't add to related_events
+```
+
+**Default behavior:**
+- `link_to_story` defaults to `true` for any Event targeting a Story
+- System Events (MeterOverflow, etc.) do NOT auto-link to Stories
+- The auto-link operation is `ref.add` with no tags (tags can be added separately)
+
+**Use cases for opt-out:**
+- Administrative/housekeeping Events
+- High-frequency Events that would clutter history
+- Internal system operations
+
+---
+
 ## Cascade Example
 
 **Scenario**: GM invokes "Start Downtime" action
@@ -497,4 +547,4 @@ When an event with operations commits:
 
 ---
 
-_Interrogation complete. Updated 2026-01-10 with system events (MeterOverflow, MeterUnderflow, ObjectCreated, ObjectArchived, RefDangling)._
+_Last updated 2026-01-18. Added tagged refs support (`ref.add`/`ref.set` accept `tags`, new `ref.tag` operation). Added Story auto-linking with `link_to_story` opt-out._
